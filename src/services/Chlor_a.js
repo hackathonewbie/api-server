@@ -3,9 +3,9 @@ const netcdf4 = require('netcdf4');
 
 const TARGET_VAR_KEY = 'chlor_a';
 const FILL_VALUE = -32767;
-const size = 100;
 
 const filePath = path.resolve(__dirname, '../assets/A2018001.L3m_DAY_CHL_chlor_a_4km.nc');
+// const filePath = path.resolve(__dirname, '../assets/A2018292.L3m_DAY_CHL_chlor_a_4km.nc');
 const source = new netcdf4.File(filePath, 'r');
 
 const rad2degr = rad => rad * 180 / Math.PI;
@@ -46,7 +46,7 @@ const getLatLngCenter = latLngInDegr => {
   return ([rad2degr(lat), rad2degr(lng)]);
 };
 
-const getNearestLatValue = (arr, queryValue) => {
+const getNearestLatIndex = (arr, queryValue) => {
   let result;
 
   arr.forEach((value, index) => {
@@ -66,7 +66,7 @@ const getNearestLatValue = (arr, queryValue) => {
   return result;
 };
 
-const getNearestLonValue = (arr, queryValue) => {
+const getNearestLonIndex = (arr, queryValue) => {
   let result;
 
   arr.forEach((value, index) => {
@@ -95,16 +95,21 @@ class Chlor_a {
   async find(params) {
     const { query } = params;
 
-    const latIndex = getNearestLatValue(this.lats, query.lat);
-    const lonIndex = getNearestLonValue(this.lons, query.lon);
+    const lat1Index = getNearestLatIndex(this.lats, query.lat1);
+    const lon1Index = getNearestLonIndex(this.lons, query.lon1);
+    const lat2Index = getNearestLatIndex(this.lats, query.lat2);
+    const lon2Index = getNearestLonIndex(this.lons, query.lon2);
 
-    if (!latIndex || !lonIndex) return [];
+    if (!lat1Index || !lon1Index || !lon2Index || !lon2Index) return [];
 
-    const target = source.root.variables[TARGET_VAR_KEY].readSlice(latIndex, size, lonIndex, size);
+    // const width = lon2Index - lon1Index + 1; // size of indexes
+    // const height = lat2Index - lat1Index + 1; // size of indexes
+    const size = Math.max(lon2Index - lon1Index + 1, lat2Index - lat1Index + 1);
+    const target = source.root.variables[TARGET_VAR_KEY].readSlice(lat1Index, size, lon1Index, size);
 
     return Object.values(target).reduce((arr, value, index) => {
-      const targetLatIndex = Math.floor(index / size) + Number.parseInt(latIndex);
-      const targetLonIndex = index % size + Number.parseInt(lonIndex);
+      const targetLatIndex = Math.floor(index / size) + Number.parseInt(lat1Index);
+      const targetLonIndex = index % size + Number.parseInt(lon1Index);
 
       const lat1 = this.lats[targetLatIndex];
       const lon1 = this.lons[targetLonIndex];
